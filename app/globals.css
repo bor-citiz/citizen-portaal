@@ -1,26 +1,94 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Base variables for shadcn/ui (Slate foundation) with your brand colors.
+   Brand HEX -> HSL:
+   - primary (indigo)        #4338CA -> 244.52 57.94% 50.59%
+   - accent (teal)           #14B8A6 -> 173.41 80.39% 40%
+   - accent-secondary (pink) #DB2777 -> 333.33 71.43% 50.59%
+   - background              #FFFFFF -> 0 0% 100%
+   - foreground              #F9FAFB -> 210 20% 98.04%
+*/
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+    /* Core */
+    --background: 0 0% 100%;            /* #FFFFFF */
+    --foreground: 210 20% 98.039%;      /* #F9FAFB */
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+    --card: 0 0% 100%;
+    --card-foreground: var(--foreground);
+
+    --popover: 0 0% 100%;
+    --popover-foreground: var(--foreground);
+
+    /* Brand */
+    --primary: 244.52 57.94% 50.59%;           /* #4338CA */
+    --primary-foreground: 210 40% 98%;
+
+    --accent: 173.41 80.39% 40%;               /* #14B8A6 */
+    --accent-foreground: 210 40% 98%;
+
+    --accent-secondary: 333.33 71.43% 50.59%;  /* #DB2777 */
+    --accent-secondary-foreground: 210 40% 98%;
+
+    /* System (Slate defaults) */
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+
+    /* Make focus rings match brand primary */
+    --ring: 244.52 57.94% 50.59%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Slate dark defaults, with brand hues preserved */
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 244.52 57.94% 50.59%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 173.41 80.39% 40%;
+    --accent-foreground: 210 40% 98%;
+
+    --accent-secondary: 333.33 71.43% 50.59%;
+    --accent-secondary-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 244.52 57.94% 50.59%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-synthesis-weight: none;
+  }
 }
