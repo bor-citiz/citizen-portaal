@@ -17,11 +17,12 @@ export async function GET(req: Request) {
 
   const supabase = await createServerSupabase()
   const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
   if (exchangeError) {
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(exchangeError.message)}`, url.origin))
+    return NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent(exchangeError.message)}`, url.origin)
+    )
   }
 
   return NextResponse.redirect(new URL(next, url.origin))
 }
-
-

@@ -1,8 +1,18 @@
-import type { ReactNode } from "react";
-import Sidebar from "../../components/Sidebar";
-import Header from "../../components/Header";
+import type { ReactNode } from 'react'
+import { redirect } from 'next/navigation'
+import { createServerSupabase } from '@/lib/supabase/server'
+import Sidebar from '../../components/Sidebar'
+import Header from '../../components/Header'
 
-export default function ProtectedLayout({ children }: { children: ReactNode }) {
+export default async function ProtectedLayout({ children }: { children: ReactNode }) {
+  const supabase = await createServerSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    // Send the user to login and then back to the projects page after auth
+    redirect(`/login?redirect=${encodeURIComponent('/projects')}`)
+  }
+
   return (
     <div className="min-h-screen flex">
       {/* Sidebar (left) */}
@@ -16,5 +26,5 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
         <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
-  );
+  )
 }
