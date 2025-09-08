@@ -1,56 +1,73 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+// middleware.ts
+import { NextResponse, type NextRequest } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
-const PUBLIC_ROUTES = ["/login", "/auth/callback"];
+// Publieke routes (geen auth nodig)
+const PUBLIC_ROUTES = ['/login', '/auth/callback', '/auth/confirm'] // voeg /auth/confirm toe als je email confirmations gebruikt
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+  // Belangrijk: dit 'res' gebruiken we als cookie-bridge
+  const res = NextResponse.next({
+    request: { headers: req.headers },
+  })
 
-  // Supply URL, KEY, then cookie methods wired to Next middleware cookies
+  // Moderne cookie-API in middleware: getAll/setAll (vereist door @supabase/ssr)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value;
+        getAll() {
+          return req.cookies.getAll()
         },
-        set(name: string, value: string, options: any) {
-          res.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: any) {
-          res.cookies.set({ name, value: "", ...options });
+        setAll(cookies) {
+          cookies.forEach(({ name, value, options }) => {
+            res.cookies.set({ name, value, ...options })
+          })
         },
       },
     }
-  );
+  )
 
+  // Gebruik getUser() in middleware voor betrouwbare revalidatie
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  const { pathname, search } = req.nextUrl;
-  const isPublic = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
+  const { pathname, search } = req.nextUrl
+  const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r))
 
-  if (!session && !isPublic) {
-    const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("redirect", pathname + (search || ""));
-    return NextResponse.redirect(redirectUrl);
+  // Niet ingelogd en route is niet publiek -> redirect naar /login met redirect-param
+  if (!user && !isPublic) {
+    const to = req.nextUrl.clone()
+    to.pathname = '/login'
+    to.searchParams.set('redirect', pathname + (search || ''))
+    const redirectRes = NextResponse.redirect(to)
+    // Cookies van 'res' kopiëren naar de redirect-respons
+    for (const { name, value, ...rest } of res.cookies.getAll()) {
+      redirectRes.cookies.set({ name, value, ...rest })
+    }
+    return redirectRes
   }
 
-  if (session && pathname === "/login") {
-    const to = req.nextUrl.clone();
-    to.pathname = "/dashboard";
-    return NextResponse.redirect(to);
+  // Al ingelogd en toch naar /login -> door naar startpagina
+  if (user && pathname === '/login') {
+    const to = req.nextUrl.clone()
+    to.pathname = '/projects' // of '/dashboard' als je dat verkiest
+    const redirectRes = NextResponse.redirect(to)
+    for (const { name, value, ...rest } of res.cookies.getAll()) {
+      redirectRes.cookies.set({ name, value, ...rest })
+    }
+    return redirectRes
   }
 
-  return res;
+  // Altijd hetzelfde 'res' teruggeven, waar @supabase/ssr de cookies op heeft gezet
+  return res
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|site.webmanifest|robots.txt|sitemap.xml|images/|public/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)",
+    // Alles behalve statics/images etc.
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|images/|public/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)',
   ],
-};
+}

@@ -1,19 +1,18 @@
 'use client'
 
-import { useState, SVGProps } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 
-// Microsoft logo svg (zoals je had)
-function MicrosoftLogo(props: SVGProps<SVGSVGElement>) {
+function MicrosoftLogo(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg width="21" height="21" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-      <path d="M1 1H9.5V9.5H1V1Z" fill="#F25022" />
-      <path d="M11.5 1H20V9.5H11.5V1Z" fill="#7FBA00" />
-      <path d="M1 11.5H9.5V20H1V11.5Z" fill="#00A4EF" />
-      <path d="M11.5 11.5H20V20H11.5V11.5Z" fill="#FFB900" />
+    <svg viewBox="0 0 23 23" aria-hidden="true" {...props}>
+      <rect width="10" height="10" x="1" y="1" fill="#f25022" />
+      <rect width="10" height="10" x="12" y="1" fill="#7fba00" />
+      <rect width="10" height="10" x="1" y="12" fill="#00a4ef" />
+      <rect width="10" height="10" x="12" y="12" fill="#ffb900" />
     </svg>
   )
 }
@@ -23,49 +22,81 @@ export default function LoginPage() {
   const router = useRouter()
   const params = useSearchParams()
 
+  const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const redirectTo = params.get('redirect') || '/dashboard'
+  const redirectTo = params.get('redirect') || '/projects'
 
   async function handleMicrosoftLogin() {
+    setError(null)
     await supabase.auth.signInWithOAuth({
       provider: 'azure',
-      options: { redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}` },
+      options: {
+        redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+      },
     })
   }
 
-  async function handleEmailPassword(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    try {
-      // Probeer direct in te loggen
+async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault()
+  setError(null)
+  setLoading(true)
+
+  try {
+    if (mode === 'login') {
+      // — INLOGGEN —
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
       if (signInErr) {
-        // Als gebruiker niet bestaat: aanmaken en dan inloggen
-        const { error: signUpErr } = await supabase.auth.signUp({ email, password })
-        if (signUpErr) throw signUpErr
-        const { error: signInErr2 } = await supabase.auth.signInWithPassword({ email, password })
-        if (signInErr2) throw signInErr2
+        setError(`Inloggen mislukt: ${signInErr.message}`)
+        setLoading(false)
+        return
       }
       router.replace(redirectTo)
       router.refresh()
-    } catch (err: any) {
-      setError(err?.message ?? 'Er is iets misgegaan.')
-    } finally {
-      setLoading(false)
+      return
     }
+
+    // — REGISTREREN —
+    const { data, error: signUpErr } = await supabase.auth.signUp({ email, password })
+
+    // Toon exact wat Supabase teruggeeft (helpt bij debuggen)
+    console.log('signUp data:', data)
+    console.log('signUp error:', signUpErr)
+
+    if (signUpErr) {
+      setError(`Registreren mislukt: ${signUpErr.message}`)
+      setLoading(false)
+      return
+    }
+
+    // Als “Confirm email” AAN staat, is er géén sessie: blijf op de pagina en toon melding
+    if (!data.session) {
+      setError('Registratie gelukt. Controleer je e-mail om te bevestigen.')
+      setLoading(false)
+      return
+    }
+
+    // Bij “Confirm email” UIT krijg je direct een sessie en kun je door
+    router.replace(redirectTo)
+    router.refresh()
+    return
+  } catch (err: any) {
+    setError(err?.message ?? 'Er ging iets mis.')
+  } finally {
+    setLoading(false)
   }
+}
+
 
   return (
     <main className="min-h-screen w-full flex items-center justify-center bg-gray-50 p-6">
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm bg-white shadow-sm rounded-xl">
         <CardHeader className="text-center">
-          <h1 className="text-2xl font-semibold">Citizen Portaal</h1>
-          <p className="text-sm text-gray-500">Log in om je projecten te bekijken</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Citizen Portaal</h1>
+          <p className="text-sm text-gray-600">Log in om je projecten te bekijken</p>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
@@ -74,11 +105,32 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* E-mail/wachtwoord */}
-          <form onSubmit={handleEmailPassword} className="space-y-3">
+          <div className="flex items-center gap-2 text-sm" role="tablist" aria-label="Login modus">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'login'}
+              onClick={() => setMode('login')}
+              className={`px-3 py-1 rounded ${mode==='login' ? 'bg-black text-white' : 'bg-gray-200'}`}
+            >
+              Inloggen
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'register'}
+              onClick={() => setMode('register')}
+              className={`px-3 py-1 rounded ${mode==='register' ? 'bg-black text-white' : 'bg-gray-200'}`}
+            >
+              Registreren
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium">E-mail</label>
+              <label className="text-sm font-medium" htmlFor="email">E-mail</label>
               <input
+                id="email"
                 type="email"
                 required
                 value={email}
@@ -88,8 +140,9 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Wachtwoord</label>
+              <label className="text-sm font-medium" htmlFor="password">Wachtwoord</label>
               <input
+                id="password"
                 type="password"
                 required
                 value={password}
@@ -99,20 +152,22 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Bezig…' : 'Inloggen / Registreren'}
+              {loading ? 'Bezig…' : mode === 'login' ? 'Inloggen' : 'Registreren'}
             </Button>
           </form>
 
-          {/* scheiding */}
-          <div className="flex items-center gap-2 text-xs text-gray-400">
+          <div className="flex items-center gap-2 text-xs text-gray-400" aria-hidden>
             <div className="h-px flex-1 bg-gray-200" />
             OF
             <div className="h-px flex-1 bg-gray-200" />
           </div>
 
-          {/* Microsoft OAuth */}
-          <Button onClick={handleMicrosoftLogin} className="w-full bg-accent hover:bg-accent/90">
-            <MicrosoftLogo className="mr-2 h-4 w-4" />
+          <Button
+            onClick={handleMicrosoftLogin}
+            className="w-full bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center gap-2"
+            aria-label="Inloggen met Microsoft"
+          >
+            <MicrosoftLogo className="h-4 w-4" />
             Inloggen met Microsoft
           </Button>
         </CardContent>
