@@ -26,7 +26,7 @@ export async function createProject(formData: FormData) {
   const globale_planning = String(formData.get('globale_planning') ?? '').trim() || null
   const omleidingen_bereikbaarheidsissues = String(formData.get('omleidingen_bereikbaarheidsissues') ?? '').trim() || null
 
-  let base = slugify(projectnaam) || 'project'
+  const base = slugify(projectnaam) || 'project'
   let slug = base
 
   for (let i = 0; i < 5; i++) {

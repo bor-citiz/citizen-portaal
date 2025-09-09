@@ -23,7 +23,7 @@ export default async function ProjectsPage() {
     .order('created_at', { ascending: false })
 
   // Optie 2: projecten die jij gemaakt hebt (created_by)
-  const { data: byCreator, error: creErr } = await supabase
+  const { data: byCreator } = await supabase
     .from('projects')
     .select('id, projectnaam, status, slug, created_at')
     .eq('created_by', user.id)
@@ -40,8 +40,8 @@ export default async function ProjectsPage() {
 
   // Combineer en dedupliceer (kan overlappen)
   const map = new Map<string | number, Row>()
-  ;(byMembership as any[] || []).forEach((r: any) => map.set(r.id, r))
-  ;(byCreator as any[] || []).forEach((r: any) => map.set(r.id, r))
+  ;(byMembership as Row[] || []).forEach((r: Row) => map.set(r.id, r))
+  ;(byCreator as Row[] || []).forEach((r: Row) => map.set(r.id, r))
   const rows = Array.from(map.values())
 
   return (

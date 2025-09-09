@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-type Stage = 'gate' | 'checking' | 'ready' | 'saving' | 'done' | 'error'
+type Stage = 'checking' | 'ready' | 'saving' | 'done' | 'error'
 
 export default function ResetPasswordPage() {
   const supabase = createClient()
@@ -15,57 +15,81 @@ export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState<string | null>(null)
 
-  // Toon foutmelding uit URL (bijv. otp_expired)
   useEffect(() => {
-    const urlErr = params.get('error_description')
-    if (urlErr) {
-      setMessage(decodeURIComponent(urlErr))
-      setStage('error')
-    }
-  }, [params])
-
-  // Setup: gate voor ?code=..., anders luister naar recovery/hash of bestaande sessie
-  useEffect(() => {
-    if (stage !== 'checking') return
-
-    const code = params.get('code')
-    if (code) {
-      setStage('gate')
-      return
-    }
-
     ;(async () => {
-      const { data } = await supabase.auth.getSession()
-      if (data.session) {
+      // Check for error in URL
+      const urlError = params.get('error_description')
+      if (urlError) {
+        setMessage(decodeURIComponent(urlError))
+        setStage('error')
+        return
+      }
+
+      // Check for access_token and refresh_token in URL (password reset flow)
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token')
+      const token = params.get('token')
+      const type = params.get('type')
+      
+      // Try to handle session from URL parameters
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        })
+        
+        if (error) {
+          setMessage(error.message)
+          setStage('error')
+          return
+        }
+        
         setStage('ready')
         return
       }
-      const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'PASSWORD_RECOVERY' && session) setStage('ready')
-      })
-      const t = setTimeout(async () => {
-        const { data } = await supabase.auth.getSession()
-        setStage(data.session ? 'ready' : 'error')
-      }, 1500)
-      return () => {
-        clearTimeout(t)
-        sub.subscription.unsubscribe()
+      
+      // Alternative: check if there's a single token and type=recovery
+      if (token && type === 'recovery') {
+        try {
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: token,
+            type: 'recovery'
+          })
+          
+          if (error) {
+            setMessage(error.message)
+            setStage('error')
+            return
+          }
+          
+          if (data.session) {
+            setStage('ready')
+            return
+          }
+        } catch (err) {
+          setMessage((err as Error).message)
+          setStage('error')
+          return
+        }
+      }
+
+      // Check if we already have an active session (user came via callback)
+      const { data: { session }, error } = await supabase.auth.getSession()
+      
+      if (error) {
+        setMessage(error.message)
+        setStage('error')
+        return
+      }
+
+      if (session) {
+        setStage('ready')
+      } else {
+        setMessage('Invalid or expired reset link. Please request a new one.')
+        setStage('error')
       }
     })()
-  }, [stage, params, supabase])
-
-  async function proceed() {
-    const code = params.get('code')
-    if (!code) return
-    setStage('checking')
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (error) {
-      setMessage(error.message)
-      setStage('error')
-      return
-    }
-    setStage('ready')
-  }
+  }, [params, supabase])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -73,19 +97,22 @@ export default function ResetPasswordPage() {
 
     setStage('saving')
     setMessage(null)
+    
     const { error } = await supabase.auth.updateUser({ password })
+    
     if (error) {
       setMessage(error.message)
       setStage('ready')
       return
     }
+    
     setStage('done')
     setTimeout(() => router.replace('/login'), 1200)
   }
 
-  function resendLink() {
-    router.push('/forgot-password')
-  }
+  const isSaving = stage === 'saving'
+  const buttonText = isSaving ? 'Opslaan…' : 'Opslaan'
+  const isDisabled = isSaving
 
   return (
     <div
@@ -94,20 +121,6 @@ export default function ResetPasswordPage() {
     >
       <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-lg ring-1 ring-black/5 p-6">
         <h1 className="text-xl font-bold mb-2 text-slate-900">Nieuw wachtwoord instellen</h1>
-
-        {stage === 'gate' && (
-          <>
-            <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-              Beveiligingscontrole: klik op “Ga verder” om je resetlink te bevestigen.
-            </div>
-            <button
-              onClick={proceed}
-              className="w-full rounded-lg bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800"
-            >
-              Ga verder
-            </button>
-          </>
-        )}
 
         {stage === 'checking' && (
           <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
@@ -118,16 +131,24 @@ export default function ResetPasswordPage() {
         {stage === 'error' && (
           <>
             <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {message || 'Email link is invalid or has expired'}
+              {message || 'Reset link is ongeldig of verlopen'}
             </div>
-            <button onClick={resendLink} className="text-sm underline text-teal-700 hover:text-teal-800">
-              Nieuwe reset-link sturen
+            <button 
+              onClick={() => router.push('/forgot-password')} 
+              className="text-sm underline text-teal-700 hover:text-teal-800"
+            >
+              Nieuwe reset-link aanvragen
             </button>
           </>
         )}
 
-        {stage === 'ready' && (
+        {(stage === 'ready' || stage === 'saving') && (
           <form onSubmit={onSubmit} className="space-y-3">
+            {message && (
+              <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {message}
+              </div>
+            )}
             <div className="space-y-1">
               <label htmlFor="pw" className="text-sm font-medium text-slate-800">Nieuw wachtwoord</label>
               <input
@@ -142,13 +163,12 @@ export default function ResetPasswordPage() {
               />
             </div>
 
-            {/* >>> hier zat je TS-fout; zo is het veilig en simpel */}
             <button
               type="submit"
-              disabled={stage !== 'ready'}
+              disabled={isDisabled}
               className="w-full rounded-lg bg-slate-900 text-white px-3 py-2 text-sm hover:bg-slate-800 disabled:opacity-60"
             >
-              {stage !== 'ready' ? 'Opslaan…' : 'Opslaan'}
+              {buttonText}
             </button>
           </form>
         )}

@@ -72,29 +72,45 @@ export default function LoginPage() {
         router.refresh()
       } else {
         // REGISTREREN
+        // Check if user exists by attempting login with dummy password
+        const { error: loginError } = await supabase.auth.signInWithPassword({ 
+          email, 
+          password: 'dummy-password' // This will fail but tell us if user exists
+        })
+        
+        // If we get a specific error about wrong password, user exists
+        if (loginError && loginError.message.includes('Invalid login credentials')) {
+          setError('Dit e-mailadres is al geregistreerd. Probeer in te loggen of gebruik het wachtwoord vergeten formulier.')
+          return
+        }
+        
+        // Proceed with signup
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            // Zorgt dat de mail naar jouw confirm-route terugkomt
-            emailRedirectTo: `${location.origin}/auth/confirm`
+            emailRedirectTo: `${location.origin}/auth/confirm?next=/projects`
           }
         })
+        
         if (error) throw error
 
         if (data.session) {
           // Confirm email = OFF -> direct ingelogd
           router.replace(redirectTo)
           router.refresh()
-        } else {
-          // Confirm email = ON -> mail verstuurd, toon banner en ga naar login-tab
+        } else if (data.user) {
+          // New user created - show confirmation message
           setInfo('We hebben je een bevestigingsmail gestuurd. Klik op de link in die e-mail en log daarna in.')
           setMode('login')
+        } else {
+          // Fallback for unexpected cases
+          setError('Er ging iets mis bij de registratie. Probeer opnieuw.')
         }
 
       }
-    } catch (err: any) {
-      setError(err?.message ?? 'Er ging iets mis.')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Er ging iets mis.')
     } finally {
       setLoading(false)
     }

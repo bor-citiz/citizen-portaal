@@ -5,7 +5,7 @@ export default function Sidebar() {
     <div className="h-full bg-primary text-primary-foreground flex flex-col">
       {/* Brand */}
       <div className="px-4 py-5 border-b border-white/10">
-        <Link href="/dashboard" className="flex items-center gap-3">
+        <Link href="/projects" className="flex items-center gap-3">
           {/* Simple hummingbird mark (inline SVG). If you prefer, replace with your own asset. */}
           <svg
             aria-hidden="true"
@@ -22,10 +22,10 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         <Link
-          href="/dashboard"
+          href="/projects"
           className="block rounded-md px-3 py-2 hover:bg-white/10 transition"
         >
-          Dashboard
+          Projecten
         </Link>
         <Link
           href="/instellingen"
