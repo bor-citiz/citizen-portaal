@@ -9,8 +9,8 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    // Send the user to login and then back to the projects page after auth
-    redirect(`/login?redirect=${encodeURIComponent('/projects')}`)
+    // Send the user to login and then back to the dashboard after auth
+    redirect(`/login?redirect=${encodeURIComponent('/dashboard')}`)
   }
 
   return (
