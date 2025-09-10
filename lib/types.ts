@@ -1,4 +1,5 @@
-export type ProjectStatus = 'draft' | 'active' | 'completed' | 'on_hold' | 'pending_analysis'
+// Dashboard and project types
+export type ProjectStatus = 'draft' | 'pending_analysis' | 'analysis_complete' | 'active' | 'completed'
 
 export interface Project {
   id: string
@@ -6,18 +7,19 @@ export interface Project {
   locatie: string | null
   status: ProjectStatus
   created_at: string
+  stakeholder_count?: number
 }
+
+export type ActivityType = 'project_created' | 'stakeholder_added' | 'message_received'
 
 export interface Activity {
   id: string
   type: ActivityType
   description: string
-  timestamp: string
-  project_name?: string
-  created_at?: string
+  project_name: string
+  created_at: string
+  timestamp: string // formatted time like "1 uur geleden"
 }
-
-export type ActivityType = 'project_created' | 'stakeholder_added' | 'message_received'
 
 export interface DashboardStats {
   total_projects: number
@@ -25,18 +27,17 @@ export interface DashboardStats {
   pending_analysis: number
 }
 
+// Map your database status to display status
 export const statusDisplayMap: Record<ProjectStatus, string> = {
-  'draft': 'Concept',
+  'draft': 'In afwachting',
+  'pending_analysis': 'In afwachting', 
+  'analysis_complete': 'Actief',
   'active': 'Actief',
-  'completed': 'Afgerond',
-  'on_hold': 'On hold',
-  'pending_analysis': 'In analyse'
+  'completed': 'Voltooid'
 }
 
 export const statusStyles: Record<string, string> = {
-  'Concept': 'bg-gray-100 text-gray-700',
-  'Actief': 'bg-green-100 text-green-700',
-  'Afgerond': 'bg-blue-100 text-blue-700',
-  'On hold': 'bg-yellow-100 text-yellow-700',
-  'In analyse': 'bg-purple-100 text-purple-700'
+  'Actief': 'bg-teal-100 text-[#23BFBF]',
+  'In afwachting': 'bg-amber-100 text-amber-700',
+  'Voltooid': 'bg-slate-200 text-[#5E79A5]',
 }

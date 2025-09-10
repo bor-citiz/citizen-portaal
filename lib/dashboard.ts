@@ -25,21 +25,37 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     return { total_projects: 0, open_messages: 0, pending_analysis: 0 }
   }
 
-  // Get projects user has access to (via project_users or created_by)
-  const { data: projectsByMembership } = await supabase
-    .from('projects')
-    .select('status, project_users!inner(user_id)')
-    .eq('project_users.user_id', user.id)
-
+  // Get projects by creator
   const { data: projectsByCreator } = await supabase
     .from('projects')
     .select('status')
     .eq('created_by', user.id)
 
+  // Get projects by membership (avoiding join issues)
+  let projectsByMembership: any[] = []
+  try {
+    const { data: memberships } = await supabase
+      .from('project_users')
+      .select('project_id')
+      .eq('user_id', user.id)
+
+    if (memberships && memberships.length > 0) {
+      const projectIds = memberships.map(m => m.project_id)
+      const { data: memberProjects } = await supabase
+        .from('projects')
+        .select('status')
+        .in('id', projectIds)
+      
+      projectsByMembership = memberProjects || []
+    }
+  } catch (error) {
+    console.warn('Membership query failed in dashboard stats:', error)
+  }
+
   // Combine and deduplicate
   const allProjects = [
-    ...(projectsByMembership || []),
-    ...(projectsByCreator || [])
+    ...(projectsByCreator || []),
+    ...projectsByMembership
   ]
 
   return {
@@ -57,14 +73,6 @@ export async function getRecentProjects(): Promise<Project[]> {
   
   if (!user) return []
 
-  // Get projects by membership
-  const { data: byMembership } = await supabase
-    .from('projects')
-    .select('id, projectnaam, locatie, status, created_at, project_users!inner(user_id)')
-    .eq('project_users.user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(5)
-
   // Get projects by creator
   const { data: byCreator } = await supabase
     .from('projects')
@@ -73,9 +81,32 @@ export async function getRecentProjects(): Promise<Project[]> {
     .order('created_at', { ascending: false })
     .limit(5)
 
+  // Get projects by membership (avoiding join issues)
+  let byMembership: any[] = []
+  try {
+    const { data: memberships } = await supabase
+      .from('project_users')
+      .select('project_id')
+      .eq('user_id', user.id)
+
+    if (memberships && memberships.length > 0) {
+      const projectIds = memberships.map(m => m.project_id)
+      const { data: memberProjects } = await supabase
+        .from('projects')
+        .select('id, projectnaam, locatie, status, created_at')
+        .in('id', projectIds)
+        .order('created_at', { ascending: false })
+        .limit(5)
+      
+      byMembership = memberProjects || []
+    }
+  } catch (error) {
+    console.warn('Membership query failed in recent projects:', error)
+  }
+
   // Combine, deduplicate, and limit to 5
   const map = new Map<string, Project>()
-  ;[...(byMembership || []), ...(byCreator || [])].forEach((project: any) => {
+  ;[...(byCreator || []), ...byMembership].forEach((project: any) => {
     map.set(project.id, project)
   })
 

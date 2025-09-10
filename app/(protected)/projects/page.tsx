@@ -23,62 +23,68 @@ export default async function ProjectsPage() {
     )
   }
 
-  // Temporarily return mock data while RLS policies are being fixed
-  console.log('User ID:', user.id, 'Email:', user.email)
+  console.log('Fetching projects for user:', user.email)
   
-  // Mock projects data to demonstrate the UI
-  const byCreator: any[] = [
-    {
-      id: 'mock-1',
-      projectnaam: 'Voorbeeld Project 1',
-      status: 'active',
-      locatie: 'Amsterdam',
-      created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // 1 day ago
-    },
-    {
-      id: 'mock-2', 
-      projectnaam: 'Voorbeeld Project 2',
-      status: 'draft',
-      locatie: 'Rotterdam',
-      created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() // 3 days ago
-    },
-    {
-      id: 'mock-3',
-      projectnaam: 'Voorbeeld Project 3', 
-      status: 'completed',
-      locatie: null,
-      created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() // 1 week ago
+  try {
+    // First try to get projects by creator (simpler query)
+    const { data: byCreator, error: creatorErr } = await supabase
+      .from('projects')
+      .select('id, projectnaam, status, locatie, created_at')
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: false })
+
+    console.log('Creator query:', { data: byCreator, error: creatorErr })
+
+    // Try to get project memberships separately to avoid join issues
+    let byMembership: ProjectRow[] = []
+    try {
+      const { data: memberships } = await supabase
+        .from('project_users')
+        .select('project_id')
+        .eq('user_id', user.id)
+
+      if (memberships && memberships.length > 0) {
+        const projectIds = memberships.map(m => m.project_id)
+        const { data: memberProjects } = await supabase
+          .from('projects')
+          .select('id, projectnaam, status, locatie, created_at')
+          .in('id', projectIds)
+          .order('created_at', { ascending: false })
+        
+        byMembership = memberProjects || []
+      }
+    } catch (membershipError) {
+      console.warn('Membership query failed, skipping:', membershipError)
     }
-  ]
-  
-  const memErr: any = null
 
-  // TODO: Add project membership query back once RLS policies are fixed
-  const byMembership: any[] = []
+    console.log('Membership query result:', byMembership)
 
-  if (memErr) {
+    // Combine and deduplicate projects
+    const map = new Map<string, ProjectRow>()
+    ;(byCreator as ProjectRow[] || []).forEach((r: ProjectRow) => map.set(r.id, r))
+    ;byMembership.forEach((r: ProjectRow) => map.set(r.id, r))
+    const projects = Array.from(map.values())
+
+    console.log('Final projects:', projects)
+
+    // Transform to match client component interface
+    const transformedProjects = projects.map(project => ({
+      id: project.id,
+      projectnaam: project.projectnaam || 'Zonder naam',
+      locatie: project.locatie,
+      status: (project.status || 'draft') as ProjectStatus,
+      created_at: project.created_at
+    }))
+
+    return <ProjectsPageClient projects={transformedProjects} />
+
+  } catch (error) {
+    console.error('Unexpected error:', error)
     return (
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold tracking-tight">Projecten</h1>
-        <p className="text-sm text-red-600">Laden mislukt: {memErr.message}</p>
+        <p className="text-sm text-red-600">Onverwachte fout: {(error as Error).message}</p>
       </div>
     )
   }
-
-  // Combine and deduplicate projects
-  const map = new Map<string, ProjectRow>()
-  ;(byMembership as ProjectRow[] || []).forEach((r: ProjectRow) => map.set(r.id, r))
-  ;(byCreator as ProjectRow[] || []).forEach((r: ProjectRow) => map.set(r.id, r))
-  const projects = Array.from(map.values())
-
-  // Transform to match client component interface
-  const transformedProjects = projects.map(project => ({
-    id: project.id,
-    projectnaam: project.projectnaam || 'Zonder naam',
-    locatie: project.locatie,
-    status: (project.status || 'draft') as ProjectStatus,
-    created_at: project.created_at
-  }))
-
-  return <ProjectsPageClient projects={transformedProjects} />
 }
