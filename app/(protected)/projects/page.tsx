@@ -26,14 +26,25 @@ export default async function ProjectsPage() {
   console.log('Fetching projects for user:', user.email)
   
   try {
-    // First try to get projects by creator (simpler query)
-    const { data: byCreator, error: creatorErr } = await supabase
-      .from('projects')
-      .select('id, projectnaam, status, locatie, created_at')
-      .eq('created_by', user.id)
-      .order('created_at', { ascending: false })
+    // First try to get projects by creator (simpler query, avoid RLS issues)
+    let byCreator: ProjectRow[] = []
+    try {
+      const { data: creatorData, error: creatorErr } = await supabase
+        .from('projects')
+        .select('id, projectnaam, status, locatie, created_at')
+        .eq('created_by', user.id)
+        .order('created_at', { ascending: false })
+      
+      if (!creatorErr) {
+        byCreator = creatorData || []
+      } else {
+        console.warn('Creator query failed:', creatorErr)
+      }
+    } catch (creatorError) {
+      console.warn('Creator query error:', creatorError)
+    }
 
-    console.log('Creator query:', { data: byCreator, error: creatorErr })
+    console.log('Creator query:', { data: byCreator })
 
     // Try to get project memberships separately to avoid join issues
     let byMembership: ProjectRow[] = []

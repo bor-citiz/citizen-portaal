@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
 
-// Type definitions based on your JSON example
+// Type definitions based on your N8N workflow output
 interface StakeholderData {
   stakeholder_id: string
   naam: string
@@ -46,7 +46,11 @@ interface WebhookPayload {
 export async function POST(request: NextRequest) {
   try {
     const body: WebhookPayload = await request.json()
-    console.log('N8N webhook received:', { projectId: body.projectId, stakeholderCount: body.stakeholders?.length })
+    console.log('N8N webhook received:', { 
+      projectId: body.projectId, 
+      stakeholderCount: body.stakeholders?.length,
+      analysisComplete: body.analysis_complete 
+    })
 
     const { projectId, stakeholders, analysis_complete } = body
 
@@ -56,6 +60,9 @@ export async function POST(request: NextRequest) {
 
     // Use service key for admin operations
     const supabase = await createServerSupabase()
+
+    // First, create the stakeholders table if it doesn't exist
+    // You'll need to run this SQL in Supabase first (see instructions below)
 
     // Update project status
     const { error: projectError } = await supabase
@@ -71,8 +78,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update project' }, { status: 500 })
     }
 
-    // Create stakeholders table if it doesn't exist
-    if (stakeholders && stakeholders.length > 0) {
+    // Create stakeholders if analysis is complete
+    if (analysis_complete && stakeholders && stakeholders.length > 0) {
+      // Map priority values from Dutch to English for database
+      const priorityMap: Record<string, string> = {
+        'Laag': 'low',
+        'Midden': 'medium', 
+        'Hoog': 'high',
+        'Kritiek': 'high'
+      }
+
       // Prepare stakeholder data for insertion
       const stakeholderInserts = stakeholders.map(stakeholder => ({
         project_id: projectId,
@@ -82,7 +97,7 @@ export async function POST(request: NextRequest) {
         adres: stakeholder.adres,
         telefoon: stakeholder.telefoon || null,
         openingstijden: stakeholder.openingstijden || null,
-        prioriteit: stakeholder.prioriteit.toLowerCase(), // Normalize to lowercase
+        prioriteit: priorityMap[stakeholder.prioriteit] || 'medium',
         
         // Store complex data as JSONB
         hinder_data: stakeholder.hinder,
@@ -91,17 +106,18 @@ export async function POST(request: NextRequest) {
         opmerkingen: stakeholder.opmerkingen || null,
         gegevenskwaliteit: stakeholder.gegevenskwaliteit,
         
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }))
 
-      // Insert stakeholders (we'll need to create this table)
+      // Insert stakeholders
       const { error: stakeholderError } = await supabase
         .from('stakeholders')
         .insert(stakeholderInserts)
 
       if (stakeholderError) {
         console.error('Failed to insert stakeholders:', stakeholderError)
-        // Continue anyway - project status is updated
+        return NextResponse.json({ error: 'Failed to insert stakeholders' }, { status: 500 })
       } else {
         console.log(`Successfully inserted ${stakeholders.length} stakeholders`)
       }
