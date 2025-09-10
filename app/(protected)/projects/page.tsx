@@ -1,75 +1,77 @@
-import Link from 'next/link'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { Button } from '@/components/ui/button'
+import ProjectsPageClient from './components/ProjectsPageClient'
+import type { ProjectStatus } from '@/lib/types'
 
-type Row = {
-  id: string | number
+type ProjectRow = {
+  id: string
   projectnaam: string | null
   status: string | null
-  slug: string | null
+  locatie: string | null
   created_at: string
 }
 
 export default async function ProjectsPage() {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  // Optie 1: projecten waarvan jij member bent (via project_users)
-  const { data: byMembership, error: memErr } = await supabase
-    .from('projects')
-    .select('id, projectnaam, status, slug, created_at, project_users!inner(user_id)')
-    .eq('project_users.user_id', user.id)
-    .order('created_at', { ascending: false })
-
-  // Optie 2: projecten die jij gemaakt hebt (created_by)
-  const { data: byCreator } = await supabase
-    .from('projects')
-    .select('id, projectnaam, status, slug, created_at')
-    .eq('created_by', user.id)
-    .order('created_at', { ascending: false })
-
-  if (memErr) {
+  
+  if (!user) {
     return (
-      <section className="space-y-3">
+      <div className="space-y-3">
         <h1 className="text-2xl font-semibold tracking-tight">Projecten</h1>
-        <p className="text-sm text-red-600">Laden mislukt: {memErr.message}</p>
-      </section>
+        <p className="text-sm text-red-600">Je moet ingelogd zijn om projecten te bekijken.</p>
+      </div>
     )
   }
 
-  // Combineer en dedupliceer (kan overlappen)
-  const map = new Map<string | number, Row>()
-  ;(byMembership as Row[] || []).forEach((r: Row) => map.set(r.id, r))
-  ;(byCreator as Row[] || []).forEach((r: Row) => map.set(r.id, r))
-  const rows = Array.from(map.values())
+  // Simple fallback to avoid RLS issues - return empty array for now
+  let byCreator: any[] = []
+  let memErr: any = null
+  
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id, projectnaam, status, locatie, created_at')
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: false })
+    
+    if (error) {
+      console.error('Projects query error:', error)
+      memErr = error
+    } else {
+      byCreator = data || []
+    }
+  } catch (err) {
+    console.error('Projects query exception:', err)
+    memErr = err
+    byCreator = []
+  }
 
-  return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between">
+  // TODO: Add project membership query back once RLS policies are fixed
+  const byMembership: any[] = []
+
+  if (memErr) {
+    return (
+      <div className="space-y-3">
         <h1 className="text-2xl font-semibold tracking-tight">Projecten</h1>
-        <Button asChild>
-          <Link href="/projects/new">Nieuw project</Link>
-        </Button>
+        <p className="text-sm text-red-600">Laden mislukt: {memErr.message}</p>
       </div>
+    )
+  }
 
-      {rows.length === 0 ? (
-        <p className="text-sm text-gray-500">Nog geen projecten. Maak je eerste project aan.</p>
-      ) : (
-        <ul className="divide-y rounded-md border bg-white">
-          {rows.map((p) => (
-            <li key={p.id} className="p-4 flex items-center justify-between">
-              <div>
-                <div className="font-medium">{p.projectnaam ?? 'Zonder naam'}</div>
-                <div className="text-xs text-gray-500">
-                  Status: {p.status ?? 'onbekend'} • Aangemaakt: {new Date(p.created_at).toLocaleString()}
-                </div>
-              </div>
-              {/* Link naar detail volgt later */}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
+  // Combine and deduplicate projects
+  const map = new Map<string, ProjectRow>()
+  ;(byMembership as ProjectRow[] || []).forEach((r: ProjectRow) => map.set(r.id, r))
+  ;(byCreator as ProjectRow[] || []).forEach((r: ProjectRow) => map.set(r.id, r))
+  const projects = Array.from(map.values())
+
+  // Transform to match client component interface
+  const transformedProjects = projects.map(project => ({
+    id: project.id,
+    projectnaam: project.projectnaam || 'Zonder naam',
+    locatie: project.locatie,
+    status: (project.status || 'draft') as ProjectStatus,
+    created_at: project.created_at
+  }))
+
+  return <ProjectsPageClient projects={transformedProjects} />
 }

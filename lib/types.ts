@@ -1,8 +1,10 @@
+export type ProjectStatus = 'draft' | 'active' | 'completed' | 'on_hold' | 'pending_analysis'
+
 export interface Project {
   id: string
   projectnaam: string
   locatie: string | null
-  status: string
+  status: ProjectStatus
   created_at: string
 }
 
@@ -23,7 +25,7 @@ export interface DashboardStats {
   pending_analysis: number
 }
 
-export const statusDisplayMap: Record<string, string> = {
+export const statusDisplayMap: Record<ProjectStatus, string> = {
   'draft': 'Concept',
   'active': 'Actief',
   'completed': 'Afgerond',

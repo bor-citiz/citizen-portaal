@@ -93,7 +93,7 @@ export async function getRecentActivities(): Promise<Activity[]> {
   // For now, create activities from recent projects since we don't have activities table yet
   const recentProjects = await getRecentProjects()
   
-  const activities: Activity[] = recentProjects.map((project, index) => ({
+  const activities: Activity[] = recentProjects.map((project) => ({
     id: `activity-${project.id}`,
     type: 'project_created' as const,
     description: `Project "${project.projectnaam}" is aangemaakt.`,
