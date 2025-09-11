@@ -32,7 +32,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   // Get projects by creator
   const { data: projectsByCreator } = await serviceSupabase
     .from('projects')
-    .select('status')
+    .select('id, status')
     .eq('created_by', user.id)
 
   // Get projects by membership
@@ -47,7 +47,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       const projectIds = memberships.map(m => m.project_id)
       const { data: memberProjects } = await serviceSupabase
         .from('projects')
-        .select('status')
+        .select('id, status')
         .in('id', projectIds)
       
       projectsByMembership = memberProjects || []
@@ -56,11 +56,15 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     console.warn('Membership query failed in dashboard stats:', error)
   }
 
-  // Combine and deduplicate
-  const allProjects = [
-    ...(projectsByCreator || []),
-    ...projectsByMembership
-  ]
+  // Combine and deduplicate properly
+  const map = new Map()
+  ;(projectsByCreator || []).forEach(p => map.set(p.id, p))
+  ;projectsByMembership.forEach(p => map.set(p.id, p))
+  const allProjects = Array.from(map.values())
+
+  console.log('Dashboard stats - projects by creator:', projectsByCreator)
+  console.log('Dashboard stats - projects by membership:', projectsByMembership)
+  console.log('Dashboard stats - all projects after deduplication:', allProjects)
 
   return {
     total_projects: allProjects.length,

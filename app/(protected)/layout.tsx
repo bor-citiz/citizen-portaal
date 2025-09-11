@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
-import Sidebar from '../../components/Sidebar'
-import Header from '../../components/Header'
+import LayoutClient from '../../components/LayoutClient'
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   const supabase = await createServerSupabase()
@@ -14,17 +13,8 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Sidebar (left) */}
-      <aside className="w-64 shrink-0">
-        <Sidebar />
-      </aside>
-
-      {/* Main column (right) */}
-      <div className="flex-1 flex flex-col">
-        <Header />
-        <main className="flex-1 p-6">{children}</main>
-      </div>
-    </div>
+    <LayoutClient userEmail={user.email}>
+      {children}
+    </LayoutClient>
   )
 }

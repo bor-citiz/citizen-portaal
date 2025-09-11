@@ -10,7 +10,8 @@
       "Bash(curl:*)",
       "Bash(del nul)",
       "Bash(git add:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

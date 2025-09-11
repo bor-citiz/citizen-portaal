@@ -30,7 +30,7 @@ const EmptyState: React.FC = () => (
     <h2 className="mt-6 text-xl font-semibold text-[#0F172A]">Nog geen projecten.</h2>
     <p className="mt-2 text-base text-[#64748B]">Begin met het organiseren van je werk.</p>
     <div className="mt-6">
-      <Button asChild>
+      <Button variant="outline" asChild className="border-slate-200 bg-white text-slate-700 hover:bg-slate-50">
         <Link href="/projects/new">
           <Plus className="-ml-0.5 h-5 w-5" aria-hidden="true" />
           Maak je eerste project
@@ -74,7 +74,7 @@ const ProjectCard: React.FC<{ project: Project }> = ({ project }) => (
       <p className="text-sm text-[#64748B]">
         Aangemaakt op {new Date(project.created_at).toLocaleDateString('nl-NL')}
       </p>
-      <Button size="sm" asChild>
+      <Button size="sm" variant="outline" asChild className="border-slate-200 bg-white text-slate-700 hover:bg-slate-50">
         <Link href={`/projects/${project.id}`}>
           Openen
         </Link>
@@ -175,7 +175,7 @@ export default function ProjectsPageClient({ projects }: ProjectsPageProps) {
       {/* Header */}
       <header className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A]">Projecten</h1>
-        <Button asChild>
+        <Button variant="outline" asChild className="border-slate-200 bg-white text-slate-700 hover:bg-slate-50">
           <Link href="/projects/new">
             <Plus className="-ml-0.5 h-5 w-5" aria-hidden="true" />
             Nieuw project

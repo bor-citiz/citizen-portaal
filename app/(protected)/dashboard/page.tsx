@@ -1,4 +1,5 @@
 import React from 'react'
+import Link from 'next/link'
 import { getDashboardStats, getRecentProjects, getRecentActivities } from '@/lib/dashboard'
 import { statusDisplayMap, statusStyles, type Project, type Activity, type ActivityType } from '@/lib/types'
 import { 
@@ -31,20 +32,22 @@ const ProjectCard: React.FC<{ project: Project }> = ({ project }) => {
   const displayStatus = statusDisplayMap[project.status] || project.status
   
   return (
-    <div className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300">
-      <div className="flex justify-between items-start">
-        <div>
-          <h3 className="font-semibold text-[#0F172A]">{project.projectnaam}</h3>
-          <p className="text-sm text-[#64748B] flex items-center mt-1">
-            <MapPin className="mr-1.5" />
-            {project.locatie || 'Geen locatie opgegeven'}
-          </p>
+    <Link href={`/projects/${project.id}`}>
+      <div className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 cursor-pointer">
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="font-semibold text-[#0F172A]">{project.projectnaam}</h3>
+            <p className="text-sm text-[#64748B] flex items-center mt-1">
+              <MapPin className="mr-1.5" />
+              {project.locatie || 'Geen locatie opgegeven'}
+            </p>
+          </div>
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusStyles[displayStatus] || 'bg-gray-100 text-gray-700'}`}>
+            {displayStatus}
+          </span>
         </div>
-        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusStyles[displayStatus] || 'bg-gray-100 text-gray-700'}`}>
-          {displayStatus}
-        </span>
       </div>
-    </div>
+    </Link>
   )
 }
 
@@ -93,13 +96,14 @@ export default async function DashboardPage() {
   ])
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 font-sans">
-      <div className="relative">
-        <div className="absolute top-0 left-0 -ml-4 sm:-ml-6 lg:-ml-8 w-full h-1 bg-gradient-to-r from-[#DB64B5] via-[#5E79A5] to-[#23BFBF]" />
-        <h1 className="text-3xl font-bold text-[#0F172A] pt-4">Dashboard</h1>
-      </div>
+    <div className="font-sans">
+      {/* Top Gradient Strip */}
+      <div className="h-1 w-full bg-gradient-to-r from-[#DB64B5] via-[#5E79A5] to-[#23BFBF] -mx-6" />
+      
+      <div className="p-4 sm:p-6 lg:p-8">
+        <h1 className="text-3xl font-bold text-[#0F172A]">Dashboard</h1>
 
-      <section aria-labelledby="kpi-title" className="mt-8">
+        <section aria-labelledby="kpi-title" className="mt-8">
         <h2 id="kpi-title" className="sr-only">Key Performance Indicators</h2>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <KpiCard icon={<FolderKanban />} title="Projecten" value={stats.total_projects} />
@@ -142,6 +146,7 @@ export default async function DashboardPage() {
             )}
           </div>
         </section>
+      </div>
       </div>
     </div>
   )

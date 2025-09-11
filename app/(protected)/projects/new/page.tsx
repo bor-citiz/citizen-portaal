@@ -148,7 +148,7 @@ const ProgressPanel: React.FC<ProgressPanelProps> = ({ projectId, onComplete, on
         
         <div>
           <h2 className="text-2xl font-semibold text-[#0F172A] mb-3">Uw project wordt opgezet</h2>
-          <p className="text-lg text-[#64748B] mb-2">Haal een kop koffie ☕</p>
+          <p className="text-lg text-[#64748B] mb-2">Haal een kop koffie</p>
           <p className="text-sm text-[#64748B]">
             Dit kan tot 30 minuten duren • Tijd verstreken: {formatTime(timeElapsed)}
           </p>
@@ -222,7 +222,11 @@ export default function NewProjectPage() {
   }
 
   const handleAnalysisComplete = () => {
-    router.push('/projects')
+    if (projectId) {
+      router.push(`/projects/${projectId}`)
+    } else {
+      router.push('/projects')
+    }
   }
 
   const handleAnalysisError = (errorMessage: string) => {

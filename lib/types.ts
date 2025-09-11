@@ -7,6 +7,11 @@ export interface Project {
   locatie: string | null
   status: ProjectStatus
   created_at: string
+  updated_at?: string
+  radius_meters?: number
+  omschrijving_werkzaamheden?: string | null
+  globale_planning?: string | null
+  omleidingen_bereikbaarheidsissues?: string | null
   stakeholder_count?: number
 }
 
@@ -37,7 +42,7 @@ export const statusDisplayMap: Record<ProjectStatus, string> = {
 }
 
 export const statusStyles: Record<string, string> = {
-  'Actief': 'bg-teal-100 text-[#23BFBF]',
-  'In afwachting': 'bg-amber-100 text-amber-700',
-  'Voltooid': 'bg-slate-200 text-[#5E79A5]',
+  'Actief': 'bg-teal-100 text-[#23BFBF] border-teal-200',
+  'In afwachting': 'bg-amber-100 text-amber-700 border-amber-200',
+  'Voltooid': 'bg-slate-200 text-[#5E79A5] border-slate-300',
 }
