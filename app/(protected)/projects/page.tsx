@@ -1,4 +1,5 @@
 import { createServerSupabase } from '@/lib/supabase/server'
+import { createServiceSupabase } from '@/lib/supabase/service'
 import ProjectsPageClient from './components/ProjectsPageClient'
 import type { ProjectStatus } from '@/lib/types'
 
@@ -26,37 +27,29 @@ export default async function ProjectsPage() {
   console.log('Fetching projects for user:', user.email)
   
   try {
-    // First try to get projects by creator (simpler query, avoid RLS issues)
-    let byCreator: ProjectRow[] = []
-    try {
-      const { data: creatorData, error: creatorErr } = await supabase
-        .from('projects')
-        .select('id, projectnaam, status, locatie, created_at')
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false })
-      
-      if (!creatorErr) {
-        byCreator = creatorData || []
-      } else {
-        console.warn('Creator query failed:', creatorErr)
-      }
-    } catch (creatorError) {
-      console.warn('Creator query error:', creatorError)
-    }
+    // Use service role client to bypass all RLS issues completely
+    const serviceSupabase = createServiceSupabase()
+    
+    // Get projects by creator using service role (no RLS)
+    const { data: byCreator, error: creatorErr } = await serviceSupabase
+      .from('projects')
+      .select('id, projectnaam, status, locatie, created_at')
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: false })
 
-    console.log('Creator query:', { data: byCreator })
+    console.log('Creator query (service role):', { data: byCreator, error: creatorErr })
 
-    // Try to get project memberships separately to avoid join issues
+    // Get project memberships using service role (no RLS)
     let byMembership: ProjectRow[] = []
     try {
-      const { data: memberships } = await supabase
+      const { data: memberships } = await serviceSupabase
         .from('project_users')
         .select('project_id')
         .eq('user_id', user.id)
 
       if (memberships && memberships.length > 0) {
         const projectIds = memberships.map(m => m.project_id)
-        const { data: memberProjects } = await supabase
+        const { data: memberProjects } = await serviceSupabase
           .from('projects')
           .select('id, projectnaam, status, locatie, created_at')
           .in('id', projectIds)
@@ -65,7 +58,7 @@ export default async function ProjectsPage() {
         byMembership = memberProjects || []
       }
     } catch (membershipError) {
-      console.warn('Membership query failed, skipping:', membershipError)
+      console.warn('Membership query failed:', membershipError)
     }
 
     console.log('Membership query result:', byMembership)

@@ -3,19 +3,61 @@ import { createServiceSupabase } from '@/lib/supabase/service'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const serviceSupabase = createServiceSupabase()
-    const projectId = params.id
+    const { id: projectId } = await params
 
     const body = await request.json()
-    const { status, error: errorMessage, result } = body
+    console.log('Status update request body:', body)
+    
+    // Handle N8N's actual format vs expected format
+    let status: string
+    let errorMessage: string | undefined
+    let result: any
 
-    // Validate required fields
-    if (!status || !['active', 'draft', 'failed'].includes(status)) {
+    if (body.status) {
+      // Expected format: { status: "active", result: {...} }
+      status = body.status
+      errorMessage = body.error
+      result = body.result
+    } else if (body.analysis_complete === true) {
+      // N8N success format: { analysis_complete: true, stakeholders: "..." }
+      status = 'active'
+      result = {
+        stakeholders: body.stakeholders,
+        analysis_complete: body.analysis_complete,
+        projectId: body.projectId
+      }
+    } else if (body.error || body.failed === true) {
+      // N8N error format
+      status = 'failed'
+      errorMessage = body.error || 'N8N workflow failed'
+    } else {
+      // Unknown format
+      console.log('Unknown request format:', body)
       return NextResponse.json(
-        { error: 'Invalid status. Must be: active, draft, or failed' }, 
+        { 
+          error: 'Invalid request format. Expected status field or analysis_complete field',
+          received: Object.keys(body),
+          validFormats: [
+            '{ "status": "active|draft|failed" }',
+            '{ "analysis_complete": true, "stakeholders": "..." }',
+            '{ "error": "error message" }'
+          ]
+        }, 
+        { status: 400 }
+      )
+    }
+
+    // Final validation
+    if (!['active', 'draft', 'failed'].includes(status)) {
+      return NextResponse.json(
+        { 
+          error: 'Invalid status. Must be: active, draft, or failed',
+          received: status
+        }, 
         { status: 400 }
       )
     }
@@ -36,19 +78,18 @@ export async function POST(
 
     // Prepare update data
     const updateData: any = {
-      status,
-      updated_at: new Date().toISOString()
+      status
     }
 
-    // Add error message if status is failed
-    if (status === 'failed' && errorMessage) {
-      updateData.error_message = errorMessage
-    }
+    // Skip error message for now - column might not exist
+    // if (status === 'failed' && errorMessage) {
+    //   updateData.error_message = errorMessage
+    // }
 
-    // Add analysis result if status is active (success)
-    if (status === 'active' && result) {
-      updateData.analysis_result = result
-    }
+    // Skip storing analysis result for now - column doesn't exist yet
+    // if (status === 'active' && result) {
+    //   updateData.analysis_result = result
+    // }
 
     // Update project status
     const { error: updateError } = await serviceSupabase

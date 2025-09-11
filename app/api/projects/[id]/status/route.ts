@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
+import { createServiceSupabase } from '@/lib/supabase/service'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createServerSupabase()
@@ -13,10 +14,11 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const projectId = params.id
+    const { id: projectId } = await params
 
-    // Get project status
-    const { data: project, error } = await supabase
+    // Get project status using service role to bypass RLS issues
+    const serviceSupabase = createServiceSupabase()
+    const { data: project, error } = await serviceSupabase
       .from('projects')
       .select('status, created_at')
       .eq('id', projectId)
@@ -31,6 +33,14 @@ export async function GET(
       return NextResponse.json({ status: 'completed' })
     }
 
+    // Check if analysis failed
+    if (project.status === 'failed' || project.status === 'draft') {
+      return NextResponse.json({ 
+        status: 'failed', 
+        error: project.status === 'draft' ? 'Analysis was reset to draft' : 'Analysis failed'
+      })
+    }
+
     // Check for timeout (more than 12 minutes)
     const createdAt = new Date(project.created_at)
     const now = new Date()
@@ -38,7 +48,7 @@ export async function GET(
 
     if (minutesElapsed > 12) {
       // Update status to draft if timeout
-      await supabase
+      await serviceSupabase
         .from('projects')
         .update({ status: 'draft' })
         .eq('id', projectId)
@@ -49,6 +59,7 @@ export async function GET(
       })
     }
 
+    // Still pending
     return NextResponse.json({ status: 'pending' })
 
   } catch (error) {

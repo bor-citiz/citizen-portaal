@@ -88,23 +88,9 @@ interface ProgressPanelProps {
 }
 
 const ProgressPanel: React.FC<ProgressPanelProps> = ({ projectId, onComplete, onError }) => {
-  const [progress, setProgress] = useState(10)
-  const [currentStep, setCurrentStep] = useState(0)
   const [timeElapsed, setTimeElapsed] = useState(0)
-  const steps = ["Aanvraag verstuurd", "Analyse bezig", "Stakeholders vullen"]
 
   useState(() => {
-    // Progress animation
-    const progressTimer = setInterval(() => {
-      setProgress(p => Math.min(p + 1, 95)) // Stop at 95% until completion
-    }, 6000) // Slow progress over 10 minutes
-
-    // Step progression
-    const stepTimers = [
-      setTimeout(() => setCurrentStep(1), 2000),  // Step 2 after 2 seconds
-      setTimeout(() => setCurrentStep(2), 4000),  // Step 3 after 4 seconds
-    ]
-
     // Time counter
     const timeTimer = setInterval(() => {
       setTimeElapsed(t => t + 1)
@@ -117,12 +103,9 @@ const ProgressPanel: React.FC<ProgressPanelProps> = ({ projectId, onComplete, on
         const data = await response.json()
         
         if (data.status === 'completed') {
-          setProgress(100)
-          clearInterval(progressTimer)
           clearInterval(pollTimer)
           setTimeout(onComplete, 1000)
         } else if (data.status === 'failed') {
-          clearInterval(progressTimer)
           clearInterval(pollTimer)
           onError(data.error || 'Analysis failed')
         }
@@ -133,29 +116,17 @@ const ProgressPanel: React.FC<ProgressPanelProps> = ({ projectId, onComplete, on
 
     // Timeout after 12 minutes
     const timeoutTimer = setTimeout(() => {
-      clearInterval(progressTimer)
       clearInterval(pollTimer)
       onError('Analysis timed out. Please try again or contact support.')
     }, 12 * 60 * 1000)
 
     return () => {
-      clearInterval(progressTimer)
       clearInterval(timeTimer)
       clearInterval(pollTimer)
       clearTimeout(timeoutTimer)
-      stepTimers.forEach(clearTimeout)
     }
   })
 
-  const getStepIcon = (index: number) => {
-    if (index < currentStep) {
-      return <CheckCircle2 className="h-6 w-6 text-[#10B981]" />
-    }
-    if (index === currentStep) {
-      return <LoaderCircle className="h-6 w-6 text-[#5E79A5] animate-spin" />
-    }
-    return <CircleDot className="h-6 w-6 text-slate-300" />
-  }
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -165,33 +136,27 @@ const ProgressPanel: React.FC<ProgressPanelProps> = ({ projectId, onComplete, on
 
   return (
     <div className="bg-white p-8 rounded-2xl shadow-lg ring-1 ring-black/5 w-full">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold text-[#0F172A]">Uw project wordt opgezet...</h2>
-        <p className="text-[#64748B] mt-1">
-          Dit kan enkele minuten duren. Tijd verstreken: {formatTime(timeElapsed)}
-        </p>
-      </div>
-
-      <div className="mt-8 space-y-6">
-        <div>
-          <div className="w-full bg-slate-100 rounded-full h-2.5">
-            <div
-              className="bg-[#23BFBF] h-2.5 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${progress}%` }}
-            />
+      <div className="text-center space-y-6">
+        <div className="relative">
+          <div className="mx-auto w-24 h-24 bg-gradient-to-br from-[#23BFBF] to-[#5E79A5] rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center">
+              <span className="text-2xl">☕</span>
+            </div>
           </div>
-          <p className="text-sm text-[#64748B] mt-2 text-center">{Math.round(progress)}% voltooid</p>
+          <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#23BFBF] rounded-full animate-pulse"></div>
+        </div>
+        
+        <div>
+          <h2 className="text-2xl font-semibold text-[#0F172A] mb-3">Uw project wordt opgezet</h2>
+          <p className="text-lg text-[#64748B] mb-2">Haal een kop koffie ☕</p>
+          <p className="text-sm text-[#64748B]">
+            Dit kan tot 30 minuten duren • Tijd verstreken: {formatTime(timeElapsed)}
+          </p>
         </div>
 
-        <div className="space-y-4">
-          {steps.map((step, index) => (
-            <div key={step} className="flex items-center gap-4">
-              {getStepIcon(index)}
-              <span className={`text-base ${index <= currentStep ? 'text-[#0F172A]' : 'text-slate-400'}`}>
-                {step}
-              </span>
-            </div>
-          ))}
+        <div className="flex items-center justify-center space-x-2 text-[#5E79A5]">
+          <LoaderCircle className="h-5 w-5 animate-spin" />
+          <span className="text-sm font-medium">Analyse loopt...</span>
         </div>
       </div>
     </div>

@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       // Don't fail the entire request - the project is created, analysis just failed
       await serviceSupabase
         .from('projects')
-        .update({ status: 'draft' }) // Fallback to draft status
+        .update({ status: 'failed' }) // Mark as failed so coffee page can detect it
         .eq('id', project.id)
     } else {
       console.log('Webhook sent successfully')

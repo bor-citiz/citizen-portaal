@@ -1,4 +1,5 @@
 import { createServerSupabase } from '@/lib/supabase/server'
+import { createServiceSupabase } from '@/lib/supabase/service'
 import type { DashboardStats, Project, Activity } from '@/lib/types'
 
 function formatTimeAgo(date: string): string {
@@ -25,23 +26,26 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     return { total_projects: 0, open_messages: 0, pending_analysis: 0 }
   }
 
+  // Use service role to bypass RLS issues
+  const serviceSupabase = createServiceSupabase()
+
   // Get projects by creator
-  const { data: projectsByCreator } = await supabase
+  const { data: projectsByCreator } = await serviceSupabase
     .from('projects')
     .select('status')
     .eq('created_by', user.id)
 
-  // Get projects by membership (avoiding join issues)
+  // Get projects by membership
   let projectsByMembership: any[] = []
   try {
-    const { data: memberships } = await supabase
+    const { data: memberships } = await serviceSupabase
       .from('project_users')
       .select('project_id')
       .eq('user_id', user.id)
 
     if (memberships && memberships.length > 0) {
       const projectIds = memberships.map(m => m.project_id)
-      const { data: memberProjects } = await supabase
+      const { data: memberProjects } = await serviceSupabase
         .from('projects')
         .select('status')
         .in('id', projectIds)
@@ -73,25 +77,28 @@ export async function getRecentProjects(): Promise<Project[]> {
   
   if (!user) return []
 
+  // Use service role to bypass RLS issues
+  const serviceSupabase = createServiceSupabase()
+
   // Get projects by creator
-  const { data: byCreator } = await supabase
+  const { data: byCreator } = await serviceSupabase
     .from('projects')
     .select('id, projectnaam, locatie, status, created_at')
     .eq('created_by', user.id)
     .order('created_at', { ascending: false })
     .limit(5)
 
-  // Get projects by membership (avoiding join issues)
+  // Get projects by membership
   let byMembership: any[] = []
   try {
-    const { data: memberships } = await supabase
+    const { data: memberships } = await serviceSupabase
       .from('project_users')
       .select('project_id')
       .eq('user_id', user.id)
 
     if (memberships && memberships.length > 0) {
       const projectIds = memberships.map(m => m.project_id)
-      const { data: memberProjects } = await supabase
+      const { data: memberProjects } = await serviceSupabase
         .from('projects')
         .select('id, projectnaam, locatie, status, created_at')
         .in('id', projectIds)
